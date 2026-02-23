@@ -6,7 +6,7 @@ on:
       run-demo-build:
         description: "Whether to run the demo module build"
         type: boolean
-        default: true
+        default: false
       demo-pom-path:
         description: "Path to the demo module pom.xml"
         type: string
@@ -47,25 +47,25 @@ jobs:
       - name: Configure Maven settings
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << EOF
           <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                     xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
             <servers>
               <server>
                 <id>bloomreach-maven2</id>
-                <username>${env.BR_MAVEN_USERNAME}</username>
-                <password>${env.BR_MAVEN_PASSWORD}</password>
+                <username>${BR_MAVEN_USERNAME}</username>
+                <password>${BR_MAVEN_PASSWORD}</password>
               </server>
               <server>
                 <id>bloomreach-maven2-forge</id>
-                <username>${env.BR_MAVEN_USERNAME}</username>
-                <password>${env.BR_MAVEN_PASSWORD}</password>
+                <username>${BR_MAVEN_USERNAME}</username>
+                <password>${BR_MAVEN_PASSWORD}</password>
               </server>
               <server>
                 <id>bloomreach-maven2-enterprise</id>
-                <username>${env.BR_MAVEN_USERNAME}</username>
-                <password>${env.BR_MAVEN_PASSWORD}</password>
+                <username>${BR_MAVEN_USERNAME}</username>
+                <password>${BR_MAVEN_PASSWORD}</password>
               </server>
             </servers>
             <profiles>
@@ -101,7 +101,12 @@ jobs:
           fi
 
       - name: Build and test
-        run: mvn -B clean install
+        run: |
+          if [ "${{ inputs.run-demo-build }}" = "true" ]; then
+            mvn -B clean install
+          else
+            mvn -B clean verify
+          fi
         env:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
