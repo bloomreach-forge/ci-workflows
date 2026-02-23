@@ -23,6 +23,7 @@ jobs:
     permissions:
       contents: write
       checks: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -127,3 +128,12 @@ jobs:
         uses: mikepenz/action-junit-report@db71d41eb79864e25ab0337e395c352e84523afe # v4
         with:
           report_paths: '**/target/surefire-reports/TEST-*.xml'
+
+      - name: Publish coverage report
+        if: always()
+        uses: Madrapps/jacoco-report@50d3aff4548aa991e6753342d9ba291084e63848 # v1.7.2
+        with:
+          paths: '**/target/site/jacoco/jacoco.xml'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 0
+          min-coverage-changed-files: 0
