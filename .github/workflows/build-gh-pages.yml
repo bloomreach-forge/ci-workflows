@@ -70,6 +70,21 @@ jobs:
                 <password>${env.BR_MAVEN_PASSWORD}</password>
               </server>
             </servers>
+            <profiles>
+              <profile>
+                <id>bloomreach-repos</id>
+                <activation>
+                  <activeByDefault>true</activeByDefault>
+                </activation>
+                <repositories>
+                  <repository>
+                    <id>bloomreach-maven2-enterprise</id>
+                    <name>Bloomreach Maven 2 Enterprise Repository</name>
+                    <url>https://maven.bloomreach.com/repository/maven2-enterprise/</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
           </settings>
           EOF
         env:
