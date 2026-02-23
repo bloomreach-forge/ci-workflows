@@ -1,0 +1,55 @@
+name: Update Forge Descriptor
+
+on:
+  workflow_call:
+    inputs:
+      config-path:
+        description: "Path to the addon-config.yaml"
+        type: string
+        default: ".forge/addon-config.yaml"
+      output-path:
+        description: "Path where forge-addon.yaml will be written"
+        type: string
+        default: "forge-addon.yaml"
+      readme-path:
+        description: "Path to the project README"
+        type: string
+        default: "README.MD"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate forge-addon.yaml
+        uses: bloomreach-forge/brxm-marketplace/.github/actions/generate-descriptor@v1
+        with:
+          config-path: ${{ inputs.config-path }}
+          output-path: ${{ inputs.output-path }}
+          readme-path: ${{ inputs.readme-path }}
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain "${{ inputs.output-path }}")" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: regenerate forge-addon.yaml"
+          file_pattern: ${{ inputs.output-path }}
+          commit_user_name: github-actions[bot]
+          commit_user_email: github-actions[bot]@users.noreply.github.com

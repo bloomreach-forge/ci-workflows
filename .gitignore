@@ -1,0 +1,11 @@
+# IntelliJ IDEA — only the nested .gitignore is tracked
+.idea/
+!.idea/.gitignore
+
+# macOS
+.DS_Store
+
+# Editor swap/backup files
+*.swp
+*.swo
+*~
