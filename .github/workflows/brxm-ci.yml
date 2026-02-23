@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      checks: write
 
     steps:
       - name: Checkout code
@@ -90,8 +91,11 @@ jobs:
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
 
       - name: Verify versions are aligned
-        if: ${{ inputs.run-demo-build }}
         run: |
+          if [ ! -f "${{ inputs.demo-pom-path }}" ]; then
+            echo "No demo pom found at '${{ inputs.demo-pom-path }}' — skipping version check"
+            exit 0
+          fi
           ROOT_VERSION=$(awk -F'[<>]' '/<parent>/,/<\/parent>/{next} /<version>/{print $3; exit}' pom.xml)
           DEMO_VERSION=$(awk -F'[<>]' '/<parent>/,/<\/parent>/{next} /<version>/{print $3; exit}' "${{ inputs.demo-pom-path }}")
           echo "Root: $ROOT_VERSION, Demo: $DEMO_VERSION"
@@ -117,3 +121,9 @@ jobs:
         env:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@db71d41eb79864e25ab0337e395c352e84523afe # v4
+        with:
+          report_paths: '**/target/surefire-reports/TEST-*.xml'
