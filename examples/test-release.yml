@@ -1,0 +1,62 @@
+name: Test Release (Dry Run)
+
+# Validates the full release flow without publishing to Nexus or creating a GitHub Release.
+# Creates a disposable branch, runs the release workflow against it, then cleans up.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Test release version (e.g. 0.0.0-test)"
+        required: true
+        default: "0.0.0-test"
+      next-development-version:
+        description: "Test next SNAPSHOT (e.g. 0.0.1-SNAPSHOT)"
+        required: true
+        default: "0.0.1-SNAPSHOT"
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      test-branch: ${{ steps.create-branch.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Create test branch
+        id: create-branch
+        run: |
+          BRANCH="test/release-dry-run-${{ github.run_id }}"
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+  release-dry-run:
+    needs: setup
+    permissions:
+      contents: write
+    uses: bloomreach-forge/ci-workflows/.github/workflows/release.yml@main
+    with:
+      version: ${{ inputs.version }}
+      next-development-version: ${{ inputs.next-development-version }}
+      branch: ${{ needs.setup.outputs.test-branch }}
+      dry-run: true
+    secrets: inherit
+
+  cleanup:
+    needs: [setup, release-dry-run]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ github.token }}
+
+      - name: Delete test branch and tag
+        run: |
+          git push origin --delete "${{ needs.setup.outputs.test-branch }}" || true
+          git push origin --delete "refs/tags/${{ inputs.version }}" || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

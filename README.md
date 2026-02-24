@@ -7,8 +7,9 @@ Reusable GitHub Actions workflows for [bloomreach-forge](https://github.com/bloo
 | Workflow | Description |
 |---|---|
 | `brxm-ci.yml` | Build and test a brXM Forge project (root + optional demo module) |
-| `release.yml` | Verify versions, build, deploy to Forge Maven repository, create GitHub Release |
+| `release.yml` | Set version, build, deploy to Forge Maven repository, tag, create GitHub Release, bump to next SNAPSHOT |
 | `build-gh-pages.yml` | Build Maven site and publish to `gh-pages` branch |
+| `configure-gh-pages.yml` | Configure repository Pages settings to serve from `gh-pages` branch |
 | `forge-descriptor.yml` | Generate and commit `forge-addon.yaml` from `.forge/addon-config.yaml` |
 
 Ready-to-use caller templates are in [`examples/`](examples/).
@@ -35,12 +36,13 @@ by GitHub per-run and scoped to the caller repository.
 
 These workflows write back to the repository:
 
-| Workflow | Write operation |
-|---|---|
-| `brxm-ci.yml` | Removes committed `docs/` from source branch if present (one-time cleanup) |
-| `release.yml` | Creates a GitHub Release |
-| `build-gh-pages.yml` | Pushes built site to `gh-pages` branch |
-| `forge-descriptor.yml` | Commits generated `forge-addon.yaml` |
+| Workflow | Permission | Write operation |
+|---|---|---|
+| `brxm-ci.yml` | `contents: write` | Removes committed `docs/` from source branch if present (one-time cleanup) |
+| `release.yml` | `contents: write` | Commits version bumps, pushes tag, creates GitHub Release |
+| `build-gh-pages.yml` | `contents: write` | Pushes built site to `gh-pages` branch |
+| `configure-gh-pages.yml` | `pages: write` | Configures repository Pages source via GitHub API |
+| `forge-descriptor.yml` | `contents: write` | Commits generated `forge-addon.yaml` |
 
 Because these are cross-repository reusable workflows, the `permissions` declared
 inside them are not sufficient on their own — the **caller job** must also grant
@@ -92,10 +94,15 @@ jobs:
 
 #### `release.yml` — inputs
 
-| Input | Default | Description |
-|---|---|---|
-| `run-demo-build` | `true` | Set to `false` for projects without a demo module |
-| `demo-pom-path` | `demo/pom.xml` | Path to the demo module `pom.xml` |
+| Input | Required | Default | Description |
+|---|---|---|---|
+| `version` | yes | — | Release version, e.g. `1.2.3` |
+| `next-development-version` | yes | — | Next SNAPSHOT, e.g. `1.2.4-SNAPSHOT` |
+| `branch` | no | `master` | Branch to release from and push back to |
+| `dry-run` | no | `false` | Skip Nexus deploy and GitHub Release (for testing) |
+| `run-demo-build` | no | `true` | Set to `false` for projects without a demo module |
+| `demo-pom-path` | no | `demo/pom.xml` | Path to the demo module `pom.xml` |
+| `forge-readme-path` | no | `README.md` | README path for `forge-addon.yaml` generation |
 
 #### `build-gh-pages.yml` — inputs
 
@@ -161,3 +168,65 @@ The examples use `@main`. For production stability, pin to a specific tag or SHA
 ```yaml
 uses: bloomreach-forge/ci-workflows/.github/workflows/brxm-ci.yml@v1.0.0
 ```
+
+---
+
+## Testing the release workflow
+
+### Dry-run smoke test (GitHub-hosted)
+
+`examples/test-release.yml` exercises the full release flow without touching Nexus or creating a
+GitHub Release. Copy it into `.github/workflows/` of the consuming repo, then:
+
+1. Go to **Actions → Test Release (Dry Run) → Run workflow**
+2. Accept the defaults (`0.0.0-test` / `0.0.1-SNAPSHOT`) or enter custom values
+3. The workflow will:
+   - Create a disposable branch `test/release-dry-run-{run_id}`
+   - Run the full release sequence (version bump, build, commit, tag) against that branch
+   - Skip Nexus deploy and GitHub Release creation
+   - Delete the test branch and tag in a final cleanup job that always runs
+
+This validates git operations, Maven version bumping, and the overall step sequence without any
+external side-effects.
+
+### Local execution with `act`
+
+[`act`](https://github.com/nektos/act) runs GitHub Actions locally via Docker. It is well-suited
+for testing standalone `workflow_dispatch` workflows. Note that reusable `workflow_call` workflows
+have limited support in `act`; test the calling workflow (e.g. `test-release.yml`), not the
+reusable workflow directly.
+
+**Install**
+```bash
+# macOS
+brew install act
+
+# Linux
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+```
+
+**Configure**
+
+Create `.secrets` in the repo root (never commit this file):
+```
+BR_MAVEN_USERNAME=your-username
+BR_MAVEN_PASSWORD=your-password
+```
+
+Create `.actrc` to set the runner image:
+```
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+```
+
+**Run**
+```bash
+# Dry-run smoke test (resolves reusable workflow from local path)
+act workflow_dispatch \
+  -W .github/workflows/test-release.yml \
+  --secret-file .secrets \
+  --input version=0.0.0-test \
+  --input next-development-version=0.0.1-SNAPSHOT
+```
+
+`act` skips steps that require GitHub APIs (e.g. `gh release create`) by default when
+`GITHUB_TOKEN` is not set. Pass `--env GITHUB_TOKEN=$(gh auth token)` to enable them.

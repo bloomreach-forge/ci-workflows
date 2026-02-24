@@ -1,0 +1,22 @@
+name: Configure GitHub Pages
+
+on:
+  workflow_call:
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+
+    steps:
+      - name: Configure Pages to serve from gh-pages branch
+        run: |
+          # Update if Pages is already configured, otherwise create it.
+          # Both calls are idempotent — safe to run on every deploy.
+          echo '{"source":{"branch":"gh-pages","path":"/"}}' | \
+            gh api -X PUT /repos/${{ github.repository }}/pages --input - --silent 2>/dev/null || \
+          echo '{"source":{"branch":"gh-pages","path":"/"}}' | \
+            gh api -X POST /repos/${{ github.repository }}/pages --input - --silent || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

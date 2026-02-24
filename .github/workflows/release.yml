@@ -3,6 +3,22 @@ name: brXM Forge Release
 on:
   workflow_call:
     inputs:
+      version:
+        description: "Release version (e.g. 1.2.3)"
+        type: string
+        required: true
+      next-development-version:
+        description: "Next SNAPSHOT version (e.g. 1.2.4-SNAPSHOT)"
+        type: string
+        required: true
+      branch:
+        description: "Branch to release from and push back to"
+        type: string
+        default: "master"
+      dry-run:
+        description: "Skip deploy to Nexus and GitHub Release creation (for testing)"
+        type: boolean
+        default: false
       run-demo-build:
         description: "Whether to build and verify the demo module"
         type: boolean
@@ -30,6 +46,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+          fetch-depth: 0
+          token: ${{ github.token }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -82,24 +102,16 @@ jobs:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
 
-      - name: Verify version matches tag
+      - name: Configure git
         run: |
-          POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          if [ "$POM_VERSION" != "${{ github.ref_name }}" ]; then
-            echo "ERROR: Tag '${{ github.ref_name }}' does not match pom version '$POM_VERSION'"
-            exit 1
-          fi
-        env:
-          BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
-          BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
 
-      - name: Verify demo version matches tag
-        if: ${{ inputs.run-demo-build }}
+      - name: Set release version
         run: |
-          DEMO_VERSION=$(mvn -f "${{ inputs.demo-pom-path }}" help:evaluate -Dexpression=project.version -q -DforceStdout)
-          if [ "$DEMO_VERSION" != "${{ github.ref_name }}" ]; then
-            echo "ERROR: Tag '${{ github.ref_name }}' does not match demo pom version '$DEMO_VERSION'"
-            exit 1
+          mvn -B versions:set -DnewVersion="${{ inputs.version }}" -DgenerateBackupPoms=false
+          if [ -f "${{ inputs.demo-pom-path }}" ]; then
+            mvn -B -f "${{ inputs.demo-pom-path }}" versions:set -DnewVersion="${{ inputs.version }}" -DgenerateBackupPoms=false
           fi
         env:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
@@ -119,6 +131,7 @@ jobs:
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
 
       - name: Deploy to Forge repository
+        if: ${{ !inputs.dry-run }}
         run: mvn -B deploy -DskipTests
         env:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
@@ -132,12 +145,37 @@ jobs:
           output-path: forge-addon.yaml
           readme-path: ${{ inputs.forge-readme-path }}
 
+      - name: Commit release files
+        run: |
+          git add -A
+          git commit -m "release: ${{ inputs.version }}"
+          git push origin HEAD
+
+      - name: Create and push tag
+        run: |
+          git tag -a "${{ inputs.version }}" -m "Release ${{ inputs.version }}"
+          git push origin "refs/tags/${{ inputs.version }}"
+
       - name: Create GitHub Release
+        if: ${{ !inputs.dry-run }}
         run: |
           if [ -f forge-addon.yaml ]; then
-            gh release create "${{ github.ref_name }}" --generate-notes forge-addon.yaml
+            gh release create "${{ inputs.version }}" --generate-notes forge-addon.yaml
           else
-            gh release create "${{ github.ref_name }}" --generate-notes
+            gh release create "${{ inputs.version }}" --generate-notes
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set next development version
+        run: |
+          mvn -B versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
+          if [ -f "${{ inputs.demo-pom-path }}" ]; then
+            mvn -B -f "${{ inputs.demo-pom-path }}" versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
+          fi
+          git add -A
+          git commit -m "chore: prepare for next development iteration ${{ inputs.next-development-version }}"
+          git push origin HEAD
+        env:
+          BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
+          BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
