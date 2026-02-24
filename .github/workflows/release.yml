@@ -11,6 +11,10 @@ on:
         description: "Path to the demo module pom.xml"
         type: string
         default: "demo/pom.xml"
+      forge-readme-path:
+        description: "Path to the README for forge descriptor generation (auto-detected if .forge/addon-config.yaml exists)"
+        type: string
+        default: "README.md"
     secrets:
       BR_MAVEN_USERNAME:
         required: true
@@ -120,7 +124,20 @@ jobs:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
 
+      - name: Generate forge-addon.yaml
+        if: hashFiles('.forge/addon-config.yaml') != ''
+        uses: bloomreach-forge/brxm-marketplace/.github/actions/generate-descriptor@v1
+        with:
+          config-path: .forge/addon-config.yaml
+          output-path: forge-addon.yaml
+          readme-path: ${{ inputs.forge-readme-path }}
+
       - name: Create GitHub Release
-        run: gh release create "${{ github.ref_name }}" --generate-notes
+        run: |
+          if [ -f forge-addon.yaml ]; then
+            gh release create "${{ github.ref_name }}" --generate-notes forge-addon.yaml
+          else
+            gh release create "${{ github.ref_name }}" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
