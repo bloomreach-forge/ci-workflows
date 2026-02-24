@@ -15,6 +15,10 @@ on:
         description: "Branch to release from and push back to"
         type: string
         default: "master"
+      develop-branch:
+        description: "Branch to receive the next development version bump"
+        type: string
+        default: "develop"
       dry-run:
         description: "Skip deploy to Nexus and GitHub Release creation (for testing)"
         type: boolean
@@ -176,14 +180,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set next development version
+        if: ${{ !inputs.dry-run }}
         run: |
-          mvn -B versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
+          git fetch origin "${{ inputs.develop-branch }}"
+          git checkout "${{ inputs.develop-branch }}"
+          mvn -B -o versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
           if [ -f "${{ inputs.demo-pom-path }}" ]; then
-            mvn -B -f "${{ inputs.demo-pom-path }}" versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
+            mvn -B -o -f "${{ inputs.demo-pom-path }}" versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
           fi
           git add -A
           git commit -m "chore: prepare for next development iteration ${{ inputs.next-development-version }}"
-          git push origin HEAD
+          git push origin "${{ inputs.develop-branch }}"
         env:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
