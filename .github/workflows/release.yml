@@ -44,6 +44,14 @@ jobs:
       contents: write
 
     steps:
+      - name: Require release branch
+        if: ${{ !inputs.dry-run }}
+        run: |
+          if [ "${{ github.ref_name }}" != "${{ inputs.branch }}" ]; then
+            echo "::error::Workflow was triggered from '${{ github.ref_name }}' but the release branch is '${{ inputs.branch }}'. Re-run this workflow from the '${{ inputs.branch }}' branch."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
