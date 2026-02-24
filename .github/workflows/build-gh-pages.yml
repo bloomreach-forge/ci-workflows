@@ -107,25 +107,19 @@ jobs:
           mkdir -p /tmp/site-docs/
           cp -r "${{ inputs.docs-dir }}/" /tmp/site-docs/
 
+          # Remove build artifacts so they are not picked up by git add -A
+          git clean -fdx
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Switch to gh-pages (create if needed)
-          git fetch origin gh-pages:gh-pages 2>/dev/null || true
-          if git show-ref --verify --quiet refs/heads/gh-pages; then
-            git checkout gh-pages
-          else
-            git checkout --orphan gh-pages
-          fi
+          git fetch origin gh-pages:gh-pages 2>/dev/null || git checkout --orphan gh-pages
+          git checkout gh-pages
 
           # Replace site content
           git rm -rf . 2>/dev/null || true
           cp -r /tmp/site-docs/* .
           git add -A
-
-          if git diff --staged --quiet; then
-            echo "No changes in docs; nothing to commit."
-          else
-            git commit -m "regenerate docs for ${{ inputs.ref }}"
-            git push origin gh-pages
-          fi
+          git diff --staged --quiet || git commit -m "regenerate docs for ${{ inputs.ref }}"
+          git push origin gh-pages
