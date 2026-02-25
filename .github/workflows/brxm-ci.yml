@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Remove committed docs/ if present
+        if: github.event_name != 'pull_request'
         run: |
           if [ -n "$(git ls-files docs/)" ]; then
             echo "Found tracked docs/ — removing from source branch"
@@ -37,7 +38,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git rm -rf docs/
             git commit -m "chore: remove generated docs/ from source branch"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            git push
           fi
 
       - name: Set up JDK 17
