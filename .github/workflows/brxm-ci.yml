@@ -37,7 +37,7 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git rm -rf docs/
             git commit -m "chore: remove generated docs/ from source branch"
-            git push
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
           fi
 
       - name: Set up JDK 17
