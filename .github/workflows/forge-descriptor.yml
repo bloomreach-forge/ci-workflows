@@ -38,8 +38,10 @@ jobs:
 
       - name: Check for changes
         id: changes
+        env:
+          OUTPUT_PATH: ${{ inputs.output-path }}
         run: |
-          if [ -z "$(git status --porcelain "${{ inputs.output-path }}")" ]; then
+          if [ -z "$(git status --porcelain "$OUTPUT_PATH")" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT

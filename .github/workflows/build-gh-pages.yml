@@ -92,20 +92,25 @@ jobs:
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
 
       - name: Build site
-        run: mvn -B site -P"${{ inputs.site-profile }}"
         env:
+          SITE_PROFILE: ${{ inputs.site-profile }}
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+        run: mvn -B site -P"$SITE_PROFILE"
+
 
       - name: Deploy site to gh-pages
+        env:
+          DOCS_DIR: ${{ inputs.docs-dir }}
+          REF: ${{ inputs.ref }}
         run: |
-          if [ ! -d "${{ inputs.docs-dir }}" ]; then
-            echo "ERROR: Site build did not produce ${{ inputs.docs-dir }}/ directory"
+          if [ ! -d "$DOCS_DIR" ]; then
+            echo "ERROR: Site build did not produce $DOCS_DIR/ directory"
             exit 1
           fi
 
           mkdir -p /tmp/site-docs/
-          cp -r "${{ inputs.docs-dir }}/" /tmp/site-docs/
+          cp -r "$DOCS_DIR/" /tmp/site-docs/
 
           # Remove build artifacts so they are not picked up by git add -A
           git clean -fdx
@@ -124,5 +129,5 @@ jobs:
           git rm -rf . 2>/dev/null || true
           cp -r /tmp/site-docs/* .
           git add -A
-          git diff --staged --quiet || git commit -m "regenerate docs for ${{ inputs.ref }}"
+          git diff --staged --quiet || git commit -m "regenerate docs for $REF"
           git push origin gh-pages

@@ -49,10 +49,12 @@ jobs:
 
     steps:
       - name: Require release branch
-        if: ${{ !inputs.dry-run }}
+        env:
+          RELEASE_BRANCH: ${{ inputs.branch }}
+          CURRENT_REF: ${{ github.ref_name }}
         run: |
-          if [ "${{ github.ref_name }}" != "${{ inputs.branch }}" ]; then
-            echo "::error::Workflow was triggered from '${{ github.ref_name }}' but the release branch is '${{ inputs.branch }}'. Re-run this workflow from the '${{ inputs.branch }}' branch."
+          if [ "$CURRENT_REF" != "$RELEASE_BRANCH" ]; then
+            echo "::error::Workflow was triggered from '$CURRENT_REF' but the release branch is '$RELEASE_BRANCH'. Re-run this workflow from the '$RELEASE_BRANCH' branch."
             exit 1
           fi
 
@@ -101,6 +103,16 @@ jobs:
                 </activation>
                 <repositories>
                   <repository>
+                    <id>bloomreach-maven2</id>
+                    <name>Bloomreach Maven 2 Repository</name>
+                    <url>https://maven.bloomreach.com/repository/maven2/</url>
+                  </repository>
+                  <repository>
+                    <id>bloomreach-maven2-forge</id>
+                    <name>Bloomreach Maven 2 Forge Repository</name>
+                    <url>https://maven.bloomreach.com/repository/maven2-forge/</url>
+                  </repository>
+                  <repository>
                     <id>bloomreach-maven2-enterprise</id>
                     <name>Bloomreach Maven 2 Enterprise Repository</name>
                     <url>https://maven.bloomreach.com/repository/maven2-enterprise/</url>
@@ -120,14 +132,16 @@ jobs:
           git config user.name "github-actions[bot]"
 
       - name: Set release version
-        run: |
-          mvn -B versions:set -DnewVersion="${{ inputs.version }}" -DgenerateBackupPoms=false
-          if [ -f "${{ inputs.demo-pom-path }}" ]; then
-            mvn -B -f "${{ inputs.demo-pom-path }}" versions:set -DnewVersion="${{ inputs.version }}" -DgenerateBackupPoms=false
-          fi
         env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          DEMO_POM_PATH: ${{ inputs.demo-pom-path }}
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+        run: |
+          mvn -B versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
+          if [ -f "$DEMO_POM_PATH" ]; then
+            mvn -B -f "$DEMO_POM_PATH" versions:set -DnewVersion="$RELEASE_VERSION" -DgenerateBackupPoms=false
+          fi
 
       - name: Build and test
         run: mvn -B clean install
@@ -137,17 +151,11 @@ jobs:
 
       - name: Build and test demo
         if: ${{ inputs.run-demo-build }}
-        run: mvn -B -f "${{ inputs.demo-pom-path }}" clean verify
         env:
+          DEMO_POM_PATH: ${{ inputs.demo-pom-path }}
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
-
-      - name: Deploy to Forge repository
-        if: ${{ !inputs.dry-run }}
-        run: mvn -B deploy -DskipTests
-        env:
-          BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
-          BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+        run: mvn -B -f "$DEMO_POM_PATH" clean verify
 
       - name: Generate forge-addon.yaml
         if: hashFiles('.forge/addon-config.yaml') != ''
@@ -158,39 +166,55 @@ jobs:
           readme-path: ${{ inputs.forge-readme-path }}
 
       - name: Commit release files
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
           git add -A
-          git commit -m "release: ${{ inputs.version }}"
+          git commit -m "release: $RELEASE_VERSION"
           git push origin HEAD
 
       - name: Create and push tag
-        run: |
-          git tag -a "${{ inputs.version }}" -m "Release ${{ inputs.version }}"
-          git push origin "refs/tags/${{ inputs.version }}"
-
-      - name: Create GitHub Release
-        if: ${{ !inputs.dry-run }}
-        run: |
-          if [ -f forge-addon.yaml ]; then
-            gh release create "${{ inputs.version }}" --generate-notes forge-addon.yaml
-          else
-            gh release create "${{ inputs.version }}" --generate-notes
-          fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set next development version
-        if: ${{ !inputs.dry-run }}
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          git fetch origin "${{ inputs.develop-branch }}"
-          git checkout "${{ inputs.develop-branch }}"
-          mvn -B -o versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
-          if [ -f "${{ inputs.demo-pom-path }}" ]; then
-            mvn -B -o -f "${{ inputs.demo-pom-path }}" versions:set -DnewVersion="${{ inputs.next-development-version }}" -DgenerateBackupPoms=false
-          fi
-          git add -A
-          git commit -m "chore: prepare for next development iteration ${{ inputs.next-development-version }}"
-          git push origin "${{ inputs.develop-branch }}"
+          git tag -a "$RELEASE_VERSION" -m "Release $RELEASE_VERSION"
+          git push origin "refs/tags/$RELEASE_VERSION"
+
+      - name: Deploy to Forge repository
+        if: ${{ !inputs.dry-run }}
+        run: mvn -B deploy -DskipTests
         env:
           BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
           BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry-run }}
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f forge-addon.yaml ]; then
+            gh release create "$RELEASE_VERSION" --generate-notes forge-addon.yaml
+          else
+            gh release create "$RELEASE_VERSION" --generate-notes
+          fi
+
+      - name: Set next development version
+        if: ${{ !inputs.dry-run }}
+        env:
+          DEVELOP_BRANCH: ${{ inputs.develop-branch }}
+          NEXT_VERSION: ${{ inputs.next-development-version }}
+          DEMO_POM_PATH: ${{ inputs.demo-pom-path }}
+          BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
+          BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+        run: |
+          git fetch origin "$DEVELOP_BRANCH"
+          git checkout "$DEVELOP_BRANCH"
+          mvn -B versions:set -DnewVersion="$NEXT_VERSION" -DgenerateBackupPoms=false
+          if [ -f "$DEMO_POM_PATH" ]; then
+            mvn -B -f "$DEMO_POM_PATH" versions:set -DnewVersion="$NEXT_VERSION" -DgenerateBackupPoms=false
+          fi
+          git add -A
+          git commit -m "chore: prepare for next development iteration $NEXT_VERSION"
+          git push origin "$DEVELOP_BRANCH"
+        
