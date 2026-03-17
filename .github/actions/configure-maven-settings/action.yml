@@ -1,0 +1,20 @@
+name: Configure Maven Settings
+description: Writes ~/.m2/settings.xml with Bloomreach Maven repository credentials.
+
+inputs:
+  username:
+    description: Maven repository username (BR_MAVEN_USERNAME)
+    required: true
+  password:
+    description: Maven repository password (BR_MAVEN_PASSWORD)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Write Maven settings
+      shell: bash
+      env:
+        BR_MAVEN_USERNAME: ${{ inputs.username }}
+        BR_MAVEN_PASSWORD: ${{ inputs.password }}
+      run: python3 "${{ github.action_path }}/configure_maven_settings.py"

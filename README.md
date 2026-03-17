@@ -14,6 +14,12 @@ Reusable GitHub Actions workflows for [bloomreach-forge](https://github.com/bloo
 
 Ready-to-use caller templates are in [`examples/`](examples/).
 
+## Actions
+
+| Action | Description |
+|---|---|
+| `configure-maven-settings` | Write `~/.m2/settings.xml` with Bloomreach Maven server credentials and repository profiles |
+
 ---
 
 ## Consumer setup
@@ -132,6 +138,34 @@ The consuming `pom.xml` must have a profile that sets `maven-site-plugin`'s
 </profile>
 ```
 
+#### `configure-maven-settings` — standalone action
+
+For pipelines that manage their own Maven build steps but need Bloomreach credentials configured,
+the action can be used directly without adopting a full reusable workflow:
+
+```yaml
+- name: Configure Maven settings
+  uses: bloomreach-forge/ci-workflows/.github/actions/configure-maven-settings@v1.0.4
+  with:
+    username: ${{ secrets.BR_MAVEN_USERNAME }}
+    password: ${{ secrets.BR_MAVEN_PASSWORD }}
+```
+
+**Inputs**
+
+| Input | Required | Description |
+|---|---|---|
+| `username` | yes | Bloomreach Maven repository username |
+| `password` | yes | Bloomreach Maven repository password |
+
+The action writes `~/.m2/settings.xml` registering all three Bloomreach servers
+(`bloomreach-maven2`, `bloomreach-maven2-forge`, `bloomreach-maven2-enterprise`) and the
+`bloomreach-repos` profile. Credentials are XML-escaped before writing — special characters in
+passwords are handled safely.
+
+The output path defaults to `~/.m2/settings.xml` and can be overridden by setting
+`MAVEN_SETTINGS_PATH` in the calling step's `env`.
+
 #### `forge-descriptor.yml` — inputs
 
 | Input | Default | Description |
@@ -166,7 +200,7 @@ configured to serve from the `gh-pages` branch:
 
 The examples use `@main`. For production stability, pin to a specific tag or SHA:
 ```yaml
-uses: bloomreach-forge/ci-workflows/.github/workflows/brxm-ci.yml@v1.0.0
+uses: bloomreach-forge/ci-workflows/.github/workflows/brxm-ci.yml@v1.0.4
 ```
 
 ---

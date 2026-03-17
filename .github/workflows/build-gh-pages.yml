@@ -47,49 +47,10 @@ jobs:
           distribution: "temurin"
 
       - name: Configure Maven settings
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << EOF
-          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
-            <servers>
-              <server>
-                <id>bloomreach-maven2</id>
-                <username>${BR_MAVEN_USERNAME}</username>
-                <password>${BR_MAVEN_PASSWORD}</password>
-              </server>
-              <server>
-                <id>bloomreach-maven2-forge</id>
-                <username>${BR_MAVEN_USERNAME}</username>
-                <password>${BR_MAVEN_PASSWORD}</password>
-              </server>
-              <server>
-                <id>bloomreach-maven2-enterprise</id>
-                <username>${BR_MAVEN_USERNAME}</username>
-                <password>${BR_MAVEN_PASSWORD}</password>
-              </server>
-            </servers>
-            <profiles>
-              <profile>
-                <id>bloomreach-repos</id>
-                <activation>
-                  <activeByDefault>true</activeByDefault>
-                </activation>
-                <repositories>
-                  <repository>
-                    <id>bloomreach-maven2-enterprise</id>
-                    <name>Bloomreach Maven 2 Enterprise Repository</name>
-                    <url>https://maven.bloomreach.com/repository/maven2-enterprise/</url>
-                  </repository>
-                </repositories>
-              </profile>
-            </profiles>
-          </settings>
-          EOF
-        env:
-          BR_MAVEN_USERNAME: ${{ secrets.BR_MAVEN_USERNAME }}
-          BR_MAVEN_PASSWORD: ${{ secrets.BR_MAVEN_PASSWORD }}
+        uses: bloomreach-forge/ci-workflows/.github/actions/configure-maven-settings@v1.0.4
+        with:
+          username: ${{ secrets.BR_MAVEN_USERNAME }}
+          password: ${{ secrets.BR_MAVEN_PASSWORD }}
 
       - name: Build site
         env:
