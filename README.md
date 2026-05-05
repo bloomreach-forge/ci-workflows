@@ -109,13 +109,16 @@ jobs:
 | `run-demo-build` | no | `true` | Set to `false` for projects without a demo module |
 | `demo-pom-path` | no | `demo/pom.xml` | Path to the demo module `pom.xml` |
 | `forge-readme-path` | no | `README.md` | README path for `forge-addon.yaml` generation |
+| `deploy-docs` | no | `false` | Deploy Maven site to GitHub Pages after release |
+| `docs-dir` | no | `docs` | Site output directory (used when `deploy-docs` is `true`) |
+| `site-profile` | no | `github.pages` | Maven profile to build the site (used when `deploy-docs` is `true`) |
 
 #### `build-gh-pages.yml` — inputs
 
 | Input | Default | Description |
 |---|---|---|
 | `ref` | *(required)* | Commit SHA or ref to build docs from — passed by the caller |
-| `java-version` | `17` | Java version |
+| `java-version` | `21` | Java version |
 | `docs-dir` | `docs` | Directory where `mvn site` writes output — must match `<outputDirectory>` in `pom.xml` |
 | `site-profile` | `github.pages` | Maven profile used to build the site |
 
@@ -145,7 +148,7 @@ the action can be used directly without adopting a full reusable workflow:
 
 ```yaml
 - name: Configure Maven settings
-  uses: bloomreach-forge/ci-workflows/.github/actions/configure-maven-settings@v1.0.4
+  uses: bloomreach-forge/ci-workflows/.github/actions/configure-maven-settings@v2.0.0
   with:
     username: ${{ secrets.BR_MAVEN_USERNAME }}
     password: ${{ secrets.BR_MAVEN_PASSWORD }}
@@ -196,12 +199,36 @@ configured to serve from the `gh-pages` branch:
 
 ---
 
+## Version compatibility
+
+| ci-workflows version | JDK |
+|---|---|
+| `v2.x` | 21 |
+| `v1.x` | 17 |
+
+---
+
 ## Version pinning
 
 The examples use `@main`. For production stability, pin to a specific tag or SHA:
 ```yaml
-uses: bloomreach-forge/ci-workflows/.github/workflows/brxm-ci.yml@v1.0.4
+uses: bloomreach-forge/ci-workflows/.github/workflows/brxm-ci.yml@v2.0.0
 ```
+
+---
+
+## Releasing a new version of ci-workflows
+
+When cutting a new release tag (e.g. `v3.0.0`), update all internal self-references
+before tagging. These appear in the workflow files as versioned action and workflow calls:
+
+| File | Reference to update |
+|---|---|
+| `.github/workflows/brxm-ci.yml` | `configure-maven-settings@vX.Y.Z` |
+| `.github/workflows/build-gh-pages.yml` | `configure-maven-settings@vX.Y.Z` |
+| `.github/workflows/release.yml` | `configure-maven-settings@vX.Y.Z` (×2), `build-gh-pages.yml@vX.Y.Z` |
+
+Also update the version examples in this README (`## Version pinning` and `## Version compatibility`).
 
 ---
 

@@ -11,7 +11,7 @@ on:
         description: "Java version to use"
         required: false
         type: string
-        default: "17"
+        default: "21"
       docs-dir:
         description: "Directory containing generated site docs"
         required: false
@@ -47,7 +47,7 @@ jobs:
           distribution: "temurin"
 
       - name: Configure Maven settings
-        uses: bloomreach-forge/ci-workflows/.github/actions/configure-maven-settings@v1.0.4
+        uses: bloomreach-forge/ci-workflows/.github/actions/configure-maven-settings@v2.0.0
         with:
           username: ${{ secrets.BR_MAVEN_USERNAME }}
           password: ${{ secrets.BR_MAVEN_PASSWORD }}
