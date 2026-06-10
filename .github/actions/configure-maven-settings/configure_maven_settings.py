@@ -38,6 +38,23 @@ _SETTINGS_TEMPLATE = """\
           <url>https://maven.bloomreach.com/repository/maven2-enterprise/</url>
         </repository>
       </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>bloomreach-maven2</id>
+          <name>Bloomreach Maven 2 Repository</name>
+          <url>https://maven.bloomreach.com/repository/maven2/</url>
+        </pluginRepository>
+        <pluginRepository>
+          <id>bloomreach-maven2-forge</id>
+          <name>Bloomreach Maven 2 Forge Repository</name>
+          <url>https://maven.bloomreach.com/repository/maven2-forge/</url>
+        </pluginRepository>
+        <pluginRepository>
+          <id>bloomreach-maven2-enterprise</id>
+          <name>Bloomreach Maven 2 Enterprise Repository</name>
+          <url>https://maven.bloomreach.com/repository/maven2-enterprise/</url>
+        </pluginRepository>
+      </pluginRepositories>
     </profile>
   </profiles>
 </settings>
